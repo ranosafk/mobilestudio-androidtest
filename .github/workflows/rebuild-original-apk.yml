@@ -165,6 +165,85 @@ jobs:
           print("Applied mobile dock sizing, 16dp resize targets, and larger panel controls.")
           PY
 
+      - name: Preserve the main menu after theme changes and reduce mobile GPU overhead
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          main = Path("decoded/smali_classes7/com/exampletest/mobilestudiotest/MainActivity.smali")
+          source = main.read_text()
+          start = source.index(".method public applyThemeChange()V")
+          end = source.index(".end method", start)
+          method = source[start:end]
+          call = "    invoke-virtual {p0}, Lcom/exampletest/mobilestudiotest/MainActivity;->recreate()V"
+          patch = """    iget-object v0, p0, Lcom/exampletest/mobilestudiotest/MainActivity;->startScreen:Lcom/exampletest/mobilestudiotest/ui/StartScreen;
+              if-eqz v0, :theme_recreate
+              invoke-virtual {p0}, Lcom/exampletest/mobilestudiotest/MainActivity;->getApplication()Landroid/app/Application;
+              move-result-object v0
+              instance-of v1, v0, Lcom/exampletest/mobilestudiotest/StudioApp;
+              if-eqz v1, :theme_recreate
+              check-cast v0, Lcom/exampletest/mobilestudiotest/StudioApp;
+              const/4 v1, 0x0
+              invoke-virtual {v0, v1}, Lcom/exampletest/mobilestudiotest/StudioApp;->setStarted(Z)V
+          :theme_recreate
+          """
+          if method.count(call) != 1:
+              raise SystemExit("Expected exactly one Activity recreate call in applyThemeChange")
+          method = method.replace(call, patch + call)
+          main.write_text(source[:start] + method + source[end:])
+
+          chooser = Path("decoded/smali_classes5/com/exampletest/mobilestudiotest/ui/ViewportView$MsaaConfigChooser.smali")
+          source = chooser.read_text()
+          start = source.index(".method public chooseConfig(")
+          end = source.index(".end method", start) + len(".end method")
+          replacement = """.method public chooseConfig(Ljavax/microedition/khronos/egl/EGL10;Ljavax/microedition/khronos/egl/EGLDisplay;)Ljavax/microedition/khronos/egl/EGLConfig;
+              .locals 5
+              .param p1, "egl"    # Ljavax/microedition/khronos/egl/EGL10;
+              .param p2, "display"    # Ljavax/microedition/khronos/egl/EGLDisplay;
+
+              const-string v0, "egl"
+              invoke-static {p1, v0}, Lkotlin/jvm/internal/Intrinsics;->checkNotNullParameter(Ljava/lang/Object;Ljava/lang/String;)V
+              const-string v0, "display"
+              invoke-static {p2, v0}, Lkotlin/jvm/internal/Intrinsics;->checkNotNullParameter(Ljava/lang/Object;Ljava/lang/String;)V
+
+              const/4 v0, 0x0
+              const/16 v1, 0x10
+              invoke-static {p1, p2, v0, v1}, Lcom/exampletest/mobilestudiotest/ui/ViewportView$MsaaConfigChooser;->chooseConfig$pick(Ljavax/microedition/khronos/egl/EGL10;Ljavax/microedition/khronos/egl/EGLDisplay;II)Ljavax/microedition/khronos/egl/EGLConfig;
+              move-result-object v2
+              if-nez v2, :config_found
+
+              const/16 v1, 0x18
+              invoke-static {p1, p2, v0, v1}, Lcom/exampletest/mobilestudiotest/ui/ViewportView$MsaaConfigChooser;->chooseConfig$pick(Ljavax/microedition/khronos/egl/EGL10;Ljavax/microedition/khronos/egl/EGLDisplay;II)Ljavax/microedition/khronos/egl/EGLConfig;
+              move-result-object v2
+              if-nez v2, :config_found
+
+              new-instance v0, Ljava/lang/IllegalStateException;
+              const-string v1, "No suitable EGL config"
+              invoke-direct {v0, v1}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
+              throw v0
+
+          :config_found
+              const/4 v0, 0x1
+              new-array v0, v0, [I
+              const/16 v1, 0x3025
+              invoke-interface {p1, p2, v2, v1, v0}, Ljavax/microedition/khronos/egl/EGL10;->eglGetConfigAttrib(Ljavax/microedition/khronos/egl/EGLDisplay;Ljavax/microedition/khronos/egl/EGLConfig;I[I)Z
+              move-result v1
+              if-eqz v1, :config_return
+
+              sget-object v1, Lcom/exampletest/mobilestudiotest/ui/ViewportView;->Companion:Lcom/exampletest/mobilestudiotest/ui/ViewportView$Companion;
+              const/4 v3, 0x0
+              aget v3, v0, v3
+              invoke-virtual {v1, v3}, Lcom/exampletest/mobilestudiotest/ui/ViewportView$Companion;->setDepthBits(I)V
+
+          :config_return
+              return-object v2
+          .end method"""
+          chooser.write_text(source[:start] + replacement + source[end:])
+          print("Theme changes now restore the start menu; mobile viewport requests no-MSAA 16-bit depth first.")
+          PY
+
       - name: Rebuild, align, sign, and verify APK
         shell: bash
         run: |
