@@ -79,12 +79,29 @@ jobs:
       - name: Package decoded resources for UI review
         run: zip -qr MobileStudio-decoded-resources.zip decoded/res decoded/AndroidManifest.xml decoded/apktool.yml
 
-      - name: Upload rebuilt APK and decoded resources
+      - name: Decompile app code for UI review
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://github.com/skylot/jadx/releases/download/v1.5.7/jadx-1.5.7.zip" \
+            --output jadx.zip
+          echo "1755e4242ade71a077438723689f404079592ec7764a3a0572f98fef94ebcbf3  jadx.zip" | sha256sum --check
+          unzip -q jadx.zip -d jadx-dist
+          chmod +x jadx-dist/bin/jadx
+          jadx-dist/bin/jadx --version
+          jadx-dist/bin/jadx --no-res --show-bad-code -d jadx-out mobilestudio_ver1-1.apk
+          test -d jadx-out/sources
+          grep -R -n -E 'class MainActivity|class StudioApp' jadx-out/sources > jadx-main-classes.txt || true
+          zip -qr MobileStudio-decompiled-source.zip jadx-out/sources jadx-main-classes.txt
+
+      - name: Upload rebuilt APK, resources, and decompiled source
         uses: actions/upload-artifact@v4
         with:
-          name: mobilestudio-rebuild-and-resources
+          name: mobilestudio-rebuild-and-analysis
           path: |
             MobileStudio-rebuilt.apk
             MobileStudio-decoded-resources.zip
+            MobileStudio-decompiled-source.zip
           if-no-files-found: error
           retention-days: 30
