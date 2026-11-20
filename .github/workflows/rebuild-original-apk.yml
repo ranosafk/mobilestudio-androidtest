@@ -90,7 +90,14 @@ jobs:
           unzip -q jadx.zip -d jadx-dist
           chmod +x jadx-dist/bin/jadx
           jadx-dist/bin/jadx --version
+          set +e
           jadx-dist/bin/jadx --no-res --show-bad-code -d jadx-out mobilestudio_ver1-1.apk
+          jadx_status=$?
+          set -e
+          if [ "$jadx_status" -ne 0 ] && [ "$jadx_status" -ne 3 ]; then
+            echo "JADX failed with unexpected exit code: $jadx_status"
+            exit "$jadx_status"
+          fi
           test -d jadx-out/sources
           grep -R -n -E 'class MainActivity|class StudioApp' jadx-out/sources > jadx-main-classes.txt || true
           zip -qr MobileStudio-decompiled-source.zip jadx-out/sources jadx-main-classes.txt
