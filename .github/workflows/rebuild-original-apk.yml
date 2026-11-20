@@ -469,7 +469,7 @@ jobs:
           print("Enabled 8-step direct-light shading in part and mesh shaders.")
           PY
 
-      - name: Apply classic Roblox website-style home screen
+      - name: Rebuild main menu in 2018 Roblox homepage style
         shell: bash
         run: |
           set -euo pipefail
@@ -480,74 +480,142 @@ jobs:
           path = Path("decoded/smali_classes5/com/exampletest/mobilestudiotest/ui/StartScreen.smali")
           source = path.read_text()
 
-          # StartScreen resolves its own palette through Ui getters. Override those
-          # calls in this class only, leaving the in-Studio editor theme untouched.
-          integer_colors = {
+          # 2018-era Roblox homepage palette: bright blue navigation, pale grey
+          # page, white content cards, dark primary text and readable secondary text.
+          colors = {
               "getBG": "-0xd0d0e",
               "getCARD": "-0x1",
-              "getTEXT": "-0xddddde",
-              "getACCENT": "-0xffaa48",
+              "getTEXT": "-0xe6e6e7",
+              "getDIM": "-0x99999a",
+              "getACCENT": "-0xff5e01",
               "getINPUT": "-0x1",
-              "getHOVER": "-0x1a0f01",
-              "getTOPBAR": "-0xffaa48",
+              "getHOVER": "-0x1a1a1b",
+              "getTOPBAR": "-0xff5e01",
           }
-          for getter, color in integer_colors.items():
+          for getter, color in colors.items():
               pattern = re.compile(
-                  rf"(?m)^(\s*)invoke-virtual \{{([vp]\d+)\}}, "
-                  rf"Lcom/exampletest/mobilestudiotest/ui/Ui;->{getter}\(\)I\n"
-                  rf"\1move-result \2$"
+                  rf"(?m)^(\\s*)invoke-virtual(?:/range)? \\{{[^}}]+\\}}, "
+                  rf"Lcom/exampletest/mobilestudiotest/ui/Ui;->{getter}\\(\\)I\\n"
+                  rf"\\1move-result (v\\d+)$"
               )
-              source, count = pattern.subn(lambda m: f"{m.group(1)}const {m.group(2)}, {color}", source)
-              if count < 1:
-                  raise SystemExit(f"Could not find active StartScreen calls to Ui.{getter}(): {count}")
-              print(f"Overrode StartScreen Ui.{getter}() at {count} call sites")
+              source, count = pattern.subn(
+                  lambda m: f"{m.group(1)}const {m.group(2)}, {color}", source
+              )
+              if getter in ("getBG", "getCARD", "getTEXT", "getACCENT", "getINPUT", "getTOPBAR") and count == 0:
+                  raise SystemExit(f"Missing StartScreen Ui.{getter}() call")
+              print(f"{getter}: corrected {count} call sites")
 
           light_pattern = re.compile(
-              r"(?m)^(\s*)invoke-virtual \{([vp]\d+)\}, "
-              r"Lcom/exampletest/mobilestudiotest/ui/Ui;->getLIGHT\(\)Z\n"
-              r"\1move-result \2$"
+              r"(?m)^(\\s*)invoke-virtual(?:/range)? \\{{[^}}]+\\}}, "
+              r"Lcom/exampletest/mobilestudiotest/ui/Ui;->getLIGHT\\(\\)Z\\n"
+              r"\\1move-result (v\\d+)$"
           )
           source, light_count = light_pattern.subn(
               lambda m: f"{m.group(1)}const/4 {m.group(2)}, 0x1", source
           )
-          if light_count < 1:
-              raise SystemExit("Could not locate StartScreen light-mode checks")
+          if light_count == 0:
+              raise SystemExit("Missing StartScreen light-mode checks")
 
           def replace_method(text, signature, replacement, next_signature):
               start = text.index(signature)
               end = text.index(next_signature, start)
               return text[:start] + replacement + text[end:]
 
-          link = """.method private final getLinkColor()I
-              .locals 1
-              const v0, -0xffaa48
-              return v0
-          .end method
-
-          """
           source = replace_method(
               source,
               ".method private final getLinkColor()I",
-              link,
-              ".method private final getSideColor()I"
-          )
-
-          side = """.method private final getSideColor()I
+              """.method private final getLinkColor()I
               .locals 1
-              const v0, -0x1
+              const v0, -0xff5e01
               return v0
           .end method
 
-          """
+          """,
+              ".method private final getSideColor()I"
+          )
           source = replace_method(
               source,
               ".method private final getSideColor()I",
-              side,
+              """.method private final getSideColor()I
+              .locals 1
+              const v0, -0x19191a
+              return v0
+          .end method
+
+          """,
               ".method private final greeting(Landroid/widget/LinearLayout;)V"
           )
 
+          # The title sits on the blue header, so it must be white rather than
+          # inheriting the dark body-text colour.
+          title_pattern = re.compile(
+              r"(?m)^(\\s*)const (v\\d+), -0xe6e6e7\\n"
+              r"(?=\\s+const/4 v\\d+, 0x1\\n\\s+const-string v\\d+, \"Mobile Studio\")"
+          )
+          source, title_count = title_pattern.subn(
+              lambda m: f"{m.group(1)}const {m.group(2)}, -0x1", source, count=1
+          )
+          if title_count != 1:
+              raise SystemExit("Could not make the top navigation title readable")
+
+          # Tint the two header action icons white to match the blue navigation bar.
+          icon_pattern = re.compile(
+              r"(Lcom/exampletest/mobilestudiotest/ui/Ui;->iconButton\\$default"
+              r"\\([^\\n]+\\)Landroid/widget/ImageView;\\n\\s+move-result-object v1)"
+          )
+          source, icon_count = icon_pattern.subn(
+              lambda m: m.group(1) + "\\n    const v9, -0x1\\n"
+                        "    invoke-virtual {v1, v9}, Landroid/widget/ImageView;->setColorFilter(I)V",
+              source
+          )
+          if icon_count != 2:
+              raise SystemExit(f"Expected two header action icons, patched {icon_count}")
+
+          # Replace the oversized gradient greeting banner with a flat white
+          # rectangular panel, matching the old Roblox homepage's content blocks.
+          greet_start = source.index(".method private final greeting(Landroid/widget/LinearLayout;)V")
+          greet_end = source.index(".method static final greeting$lambda$90", greet_start)
+          greeting = source[greet_start:greet_end]
+          old_bg = "invoke-virtual {v8, v11}, Landroid/widget/LinearLayout;->setBackground(Landroid/graphics/drawable/Drawable;)V"
+          if old_bg not in greeting:
+              raise SystemExit("Could not find greeting panel background")
+          greeting = greeting.replace(
+              old_bg,
+              "const v10, -0x1\\n"
+              "    invoke-virtual {v8, v10}, Landroid/view/View;->setBackgroundColor(I)V",
+              1
+          )
+          # Keep the greeting panel's geometry square rather than pill-shaped.
+          greeting = greeting.replace(
+              "const/high16 v12, 0x41a00000    # 20.0f",
+              "const/4 v12, 0x0",
+              1
+          )
+          source = source[:greet_start] + greeting + source[greet_end:]
+
+          # Classic square navigation tabs and game/template tiles on phone.
+          nav_start = source.index(".method private static final buildNav$item(")
+          nav_end = source.index(".method static final buildNav$item$lambda", nav_start)
+          nav = source[nav_start:nav_end].replace(
+              "const/high16 v7, 0x41900000    # 18.0f",
+              "const/4 v7, 0x0",
+              1
+          )
+          source = source[:nav_start] + nav + source[nav_end:]
+
+          card_start = source.index(".method private final card(")
+          card_end = source.index(".method static synthetic card$default", card_start)
+          card = source[card_start:card_end]
+          card = card.replace("int-to-float v14, v2", "const/4 v14, 0x0", 1)
+          card = card.replace(
+              "const/4 v14, 0x0",
+              "const/4 v14, 0x0\\n    const/4 v1, 0x0",
+              1
+          )
+          source = source[:card_start] + card + source[card_end:]
+
           path.write_text(source)
-          print("Classic Roblox-style home palette applied only to StartScreen.")
+          print("Applied 2018-style blue navigation, readable light homepage palette, flat white greeting panel, and square navigation/cards.")
           PY
 
       - name: Rebuild, align, sign, and verify APK
