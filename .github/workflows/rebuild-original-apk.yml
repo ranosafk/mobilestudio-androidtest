@@ -3,6 +3,8 @@ name: Rebuild Mobile Studio from original APK
 on:
   workflow_dispatch:
   push:
+    branches:
+      - "inspect/recovered-project"
     paths:
       - "mobilestudio_ver1-1.apk"
       - ".github/workflows/rebuild-original-apk.yml"
