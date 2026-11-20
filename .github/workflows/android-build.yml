@@ -1,10 +1,7 @@
-name: Build Mobile Studio APK
+name: Legacy recovered Java build (decompiler output is incomplete)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "inspect/recovered-project"
 
 permissions:
   contents: read
