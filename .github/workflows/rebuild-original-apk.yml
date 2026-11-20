@@ -27,25 +27,54 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Install Android build tools and apktool
+      - name: Install pinned Apktool and Android build tools
+        shell: bash
         run: |
+          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y apktool
+          sudo apt-get install -y curl unzip
           sdkmanager "build-tools;36.0.0" "platform-tools"
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://github.com/iBotPeaches/Apktool/releases/download/v3.0.3/apktool_3.0.3.jar" \
+            --output apktool.jar
+          echo "dbf930b076c6b9be08d57c449cacefc3bdd6b71ebd59b3066fc0e1f5b14f9423  apktool.jar" | sha256sum --check
+          java -jar apktool.jar --version
 
-      - name: Decode original APK
+      - name: Validate and decode original APK
+        shell: bash
         run: |
+          set -euo pipefail
           test -s mobilestudio_ver1-1.apk
-          apktool d -f mobilestudio_ver1-1.apk -o decoded
+          unzip -tq mobilestudio_ver1-1.apk
+          dex_count="$(unzip -Z1 mobilestudio_ver1-1.apk | grep -Ec '^classes([0-9]+)?\\.dex$')"
+          echo "Original DEX files: $dex_count"
+          test "$dex_count" -eq 10
+          java -jar apktool.jar d -f mobilestudio_ver1-1.apk -o decoded
+          test -s decoded/AndroidManifest.xml
+          test -s decoded/apktool.yml
+          test -d decoded/smali
 
-      - name: Rebuild APK
+      - name: Rebuild, align, sign, and verify APK
+        shell: bash
         run: |
-          apktool b decoded -o MobileStudio-rebuilt-unsigned.apk
+          set -euo pipefail
+          java -jar apktool.jar b decoded -o MobileStudio-rebuilt-unsigned.apk
+          test -s MobileStudio-rebuilt-unsigned.apk
           BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
           "$BUILD_TOOLS/zipalign" -f -p 4 MobileStudio-rebuilt-unsigned.apk MobileStudio-aligned.apk
-          keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          "$BUILD_TOOLS/apksigner" sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out MobileStudio-rebuilt.apk MobileStudio-aligned.apk
-          "$BUILD_TOOLS/apksigner" verify --verbose MobileStudio-rebuilt.apk
+          keytool -genkeypair -noprompt -keystore debug.keystore -storepass android \
+            -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
+            -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          "$BUILD_TOOLS/apksigner" sign --ks debug.keystore --ks-pass pass:android \
+            --key-pass pass:android --ks-key-alias androiddebugkey \
+            --out MobileStudio-rebuilt.apk MobileStudio-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs MobileStudio-rebuilt.apk
+          "$BUILD_TOOLS/zipalign" -c -v 4 MobileStudio-rebuilt.apk
+          unzip -tq MobileStudio-rebuilt.apk
+          rebuilt_dex_count="$(unzip -Z1 MobileStudio-rebuilt.apk | grep -Ec '^classes([0-9]+)?\\.dex$')"
+          echo "Rebuilt DEX files: $rebuilt_dex_count"
+          test "$rebuilt_dex_count" -eq 10
+          test "$(stat -c '%s' MobileStudio-rebuilt.apk)" -gt 1000000
 
       - name: Package decoded resources for UI review
         run: zip -qr MobileStudio-decoded-resources.zip decoded/res decoded/AndroidManifest.xml decoded/apktool.yml
