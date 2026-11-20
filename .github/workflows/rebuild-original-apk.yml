@@ -261,6 +261,50 @@ jobs:
           distance_method = distance_method.replace(old_distance, '    const-string v1, "Low"')
           source = source[:distance_start] + distance_method + source[distance_end:]
           settings.write_text(source)
+          ui = Path("decoded/smali_classes5/com/exampletest/mobilestudiotest/ui")
+
+          start_screen = ui / "StartScreen.smali"
+          source = start_screen.read_text()
+          start = source.index(".method private final greeting(Landroid/widget/LinearLayout;)V")
+          end = source.index(".end method", start)
+          method = source[start:end]
+          for before, after in [
+              ("const v16, 0x3ee66666    # 0.45f", "const v16, 0x3e3851ec    # 0.18f"),
+              ("const v15, 0x3e8f5c29    # 0.28f", "const v15, 0x3df5c28f    # 0.12f"),
+          ]:
+              if method.count(before) != 1:
+                  raise SystemExit(f"Unexpected main-menu card color blend: {before}")
+              method = method.replace(before, after)
+          start_screen.write_text(source[:start] + method + source[end:])
+
+          explorer = ui / "ExplorerPanel$Adapter.smali"
+          source = explorer.read_text()
+          before = "const/high16 v11, 0x41e00000    # 28.0f"
+          after = "const/high16 v11, 0x42000000    # 32.0f"
+          if source.count(before) != 1:
+              raise SystemExit("Unexpected Explorer row height")
+          explorer.write_text(source.replace(before, after))
+
+          properties = ui / "PropertiesPanel$Adapter.smali"
+          source = properties.read_text()
+          before = "const/high16 v6, 0x41d80000    # 27.0f"
+          after = "const/high16 v6, 0x41f00000    # 30.0f"
+          if source.count(before) != 1:
+              raise SystemExit("Unexpected Properties row height")
+          properties.write_text(source.replace(before, after))
+
+          toolbox = ui / "ToolboxPanel.smali"
+          source = toolbox.read_text()
+          before = "const/high16 v14, 0x40e00000    # 7.0f"
+          after = "const/high16 v14, 0x41000000    # 8.0f"
+          if source.count(before) != 1:
+              raise SystemExit("Unexpected Toolbox tab padding")
+          source = source.replace(before, after)
+          before = "const/high16 v8, 0x41e00000    # 28.0f"
+          after = "const/high16 v8, 0x42000000    # 32.0f"
+          if source.count(before) != 1:
+              raise SystemExit("Unexpected Toolbox header action size")
+          toolbox.write_text(source.replace(before, after))
           print("Theme changes now restore the start menu; mobile viewport requests no-MSAA 16-bit depth first.")
           PY
 
