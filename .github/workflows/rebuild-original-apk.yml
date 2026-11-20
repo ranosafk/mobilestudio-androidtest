@@ -404,8 +404,8 @@ jobs:
               "v25": "-0xb13650",
           }
           for register, value in palette.items():
-              pattern = rf"(?m)^(\\s*)const(?:/16)?\\s+{register},\\s*[^\\n]+$"
-              block, count = re.subn(pattern, rf"\\g<1>const {register}, {value}", block)
+              pattern = rf"(?m)^(\s*)const(?:/16)?\s+{register},\s*[^\n]+$"
+              block, count = re.subn(pattern, rf"\g<1>const {register}, {value}", block)
               if count != 1:
                   raise SystemExit(f"Expected one {register} theme color, found {count}")
           theme.write_text(source[:start] + block + source[end:])
@@ -432,7 +432,7 @@ jobs:
               "GUI": "-0xb47039",
           }
           for name, value in colors.items():
-              pattern = rf"(?m)^\\.field public static final {name}:I = [^\\n]+$"
+              pattern = rf"(?m)^\.field public static final {name}:I = [^\n]+$"
               source, count = re.subn(pattern, f".field public static final {name}:I = {value}", source)
               if count != 1:
                   raise SystemExit(f"Expected one icon color constant for {name}, found {count}")
