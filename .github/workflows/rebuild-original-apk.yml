@@ -367,6 +367,32 @@ jobs:
           print("Updated home hero spacing, project-card sizing, and shared Studio panel headers.")
           PY
 
+      - name: Add voxel-inspired stepped sunlight shading
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          renderer = Path("decoded/smali_classes8/com/exampletest/mobilestudiotest/render/SceneRenderer.smali")
+          source = renderer.read_text()
+
+          lit_before = "float diff = max(ndl, 0.0);"
+          lit_after = "float diff = floor(max(ndl, 0.0) * 8.0 + 0.5) / 8.0;"
+          if source.count(lit_before) != 1:
+              raise SystemExit("Unexpected main lighting shader diffuse expression")
+          source = source.replace(lit_before, lit_after)
+
+          mesh_before = "uSun * max(ndl, 0.0) * sh"
+          mesh_after = "uSun * (floor(max(ndl, 0.0) * 8.0 + 0.5) / 8.0) * sh"
+          if source.count(mesh_before) != 1:
+              raise SystemExit("Unexpected mesh lighting shader diffuse expression")
+          source = source.replace(mesh_before, mesh_after)
+
+          renderer.write_text(source)
+          print("Enabled 8-step direct-light shading in part and mesh shaders.")
+          PY
+
       - name: Rebuild, align, sign, and verify APK
         shell: bash
         run: |
