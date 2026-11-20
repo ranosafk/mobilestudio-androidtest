@@ -377,7 +377,7 @@ jobs:
 
           theme = Path("decoded/smali_classes4/com/exampletest/mobilestudiotest/core/Theme.smali")
           source = theme.read_text()
-          start = source.index('const-string v3, "Dark"')
+          start = source.index('const-string v3, "Studio Dark"')
           end = source.index("invoke-direct/range {v2 .. v25}", start)
           block = source[start:end]
           palette = {
