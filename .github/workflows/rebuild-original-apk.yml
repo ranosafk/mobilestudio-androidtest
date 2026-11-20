@@ -308,6 +308,66 @@ jobs:
           print("Theme changes now restore the start menu; mobile viewport requests no-MSAA 16-bit depth first.")
           PY
 
+      - name: Redesign home screen and Studio-style panel headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          ui = Path("decoded/smali_classes5/com/exampletest/mobilestudiotest/ui")
+
+          start = ui / "StartScreen.smali"
+          source = start.read_text()
+
+          card_start = source.index(".method private final card(")
+          card_end = source.index(".end method", card_start)
+          card = source[card_start:card_end]
+          for before, after in [
+              ("const/high16 v1, 0x430c0000    # 140.0f", "const/high16 v1, 0x43160000    # 150.0f"),
+              ("const/high16 v1, 0x43280000    # 168.0f", "const/high16 v1, 0x43300000    # 176.0f"),
+              ("const/high16 v1, 0x41400000    # 12.0f", "const/high16 v1, 0x41600000    # 14.0f"),
+          ]:
+              if card.count(before) != 1:
+                  raise SystemExit(f"Unexpected project card layout constant: {before}")
+              card = card.replace(before, after)
+          source = source[:card_start] + card + source[card_end:]
+
+          greet_start = source.index(".method private final greeting(")
+          greet_end = source.index(".end method", greet_start)
+          greet = source[greet_start:greet_end]
+          for before, after in [
+              ("const/high16 v10, 0x41900000    # 18.0f", "const/high16 v10, 0x41a00000    # 20.0f"),
+              ("const/high16 v12, 0x41800000    # 16.0f", "const/high16 v12, 0x41900000    # 18.0f"),
+              ("const/high16 v12, 0x41600000    # 14.0f", "const/high16 v12, 0x41800000    # 16.0f"),
+          ]:
+              if greet.count(before) != 1:
+                  raise SystemExit(f"Unexpected home hero layout constant: {before}")
+              greet = greet.replace(before, after)
+          before = "const/high16 v1, 0x41800000    # 16.0f"
+          after = "const/high16 v1, 0x41a00000    # 20.0f"
+          if greet.count(before) != 1:
+              raise SystemExit("Unexpected home hero corner radius")
+          greet = greet.replace(before, after)
+          source = source[:greet_start] + greet + source[greet_end:]
+          start.write_text(source)
+
+          ui_file = ui / "Ui.smali"
+          source = ui_file.read_text()
+          header_start = source.index(".method public final header(")
+          header_end = source.index(".end method", header_start)
+          header = source[header_start:header_end]
+          before = "const/high16 v3, 0x41000000    # 8.0f"
+          after = "const/high16 v3, 0x41200000    # 10.0f"
+          if header.count(before) != 1:
+              raise SystemExit("Unexpected shared panel header padding")
+          header = header.replace(before, after)
+          source = source[:header_start] + header + source[header_end:]
+          ui_file.write_text(source)
+
+          print("Updated home hero spacing, project-card sizing, and shared Studio panel headers.")
+          PY
+
       - name: Rebuild, align, sign, and verify APK
         shell: bash
         run: |
