@@ -1,0 +1,61 @@
+name: Rebuild Mobile Studio from original APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "mobilestudio_ver1-1.apk"
+      - ".github/workflows/rebuild-original-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android build tools and apktool
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apktool
+          sdkmanager "build-tools;36.0.0" "platform-tools"
+
+      - name: Decode original APK
+        run: |
+          test -s mobilestudio_ver1-1.apk
+          apktool d -f mobilestudio_ver1-1.apk -o decoded
+
+      - name: Rebuild APK
+        run: |
+          apktool b decoded -o MobileStudio-rebuilt-unsigned.apk
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          "$BUILD_TOOLS/zipalign" -f -p 4 MobileStudio-rebuilt-unsigned.apk MobileStudio-aligned.apk
+          keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          "$BUILD_TOOLS/apksigner" sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey --out MobileStudio-rebuilt.apk MobileStudio-aligned.apk
+          "$BUILD_TOOLS/apksigner" verify --verbose MobileStudio-rebuilt.apk
+
+      - name: Package decoded resources for UI review
+        run: zip -qr MobileStudio-decoded-resources.zip decoded/res decoded/AndroidManifest.xml decoded/apktool.yml
+
+      - name: Upload rebuilt APK and decoded resources
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobilestudio-rebuild-and-resources
+          path: |
+            MobileStudio-rebuilt.apk
+            MobileStudio-decoded-resources.zip
+          if-no-files-found: error
+          retention-days: 30
