@@ -76,8 +76,12 @@ jobs:
           test "$rebuilt_dex_count" -eq 10
           test "$(stat -c '%s' MobileStudio-rebuilt.apk)" -gt 1000000
 
-      - name: Package decoded resources for UI review
-        run: zip -qr MobileStudio-decoded-resources.zip decoded/res decoded/AndroidManifest.xml decoded/apktool.yml
+      - name: Package decoded resources and smali for UI review
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip -qr MobileStudio-decoded-resources.zip decoded/res decoded/AndroidManifest.xml decoded/apktool.yml
+          zip -qr MobileStudio-smali.zip decoded/smali*
 
       - name: Decompile app code for UI review
         shell: bash
@@ -109,6 +113,7 @@ jobs:
           path: |
             MobileStudio-rebuilt.apk
             MobileStudio-decoded-resources.zip
+            MobileStudio-smali.zip
             MobileStudio-decompiled-source.zip
           if-no-files-found: error
           retention-days: 30
