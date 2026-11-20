@@ -1,0 +1,38 @@
+name: Inspect recovered Mobile Studio project
+
+on:
+  push:
+    branches:
+      - inspect/recovered-project
+    paths:
+      - ".github/workflows/inspect-recovered-project.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Inventory recovered project
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y unzip
+          mkdir -p recovered
+          unzip -q MobileStudio_Recovered_Project.zip -d recovered
+          echo "=== PROJECT FILES ==="
+          find recovered -maxdepth 4 -type f | sort | head -n 300
+          echo "=== BUILD CONFIGS ==="
+          find recovered -type f \( -name 'settings.gradle' -o -name 'settings.gradle.kts' -o -name 'build.gradle' -o -name 'build.gradle.kts' -o -name 'gradle.properties' -o -name 'BUILD_README.md' -o -name 'UPGRADE_AUDIT_ORIGINAL.md' \) -print
+          echo "=== SOURCE FILES ==="
+          find recovered -type f \( -name '*.kt' -o -name '*.java' -o -name '*.smali' \) | sort | head -n 500
+          echo "=== RENDERER / EDITOR / PARTICLE SEARCH ==="
+          grep -R -n -I -E 'class .*Renderer|class .*Viewport|class .*Particle|ParticleEmitter|voxel|Lighting|ExplorerPanel|PropertiesPanel|ToolboxPanel|PlaySession|GLES|OpenGL' recovered --include='*.kt' --include='*.java' --include='*.xml' --include='*.gradle' --include='*.gradle.kts' | head -n 400 || true
+          echo "=== ARCHIVE SIZE ==="
+          du -sh recovered
