@@ -45,6 +45,23 @@ jobs:
           sed -i -E 's/compileSdk[[:space:]]+37/compileSdk 36/' MobileStudio_Android_Project/app/build.gradle
           grep -n 'compileSdk' MobileStudio_Android_Project/app/build.gradle
 
+      - name: Apply mobile viewport graphics defaults
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("MobileStudio_Android_Project/app/src/main/java/com/exampletest/mobilestudiotest/ui/ViewportView.java")
+          source = p.read_text()
+          old = "EGLConfig c = chooseConfig$pick(egl, display, 4, 24);"
+          new = "EGLConfig c = chooseConfig$pick(egl, display, 0, 16);"
+          count = source.count(old)
+          if count != 1:
+              raise SystemExit(f"Expected one EGL config selection, found {count}; refusing unsafe patch")
+          p.write_text(source.replace(old, new, 1))
+          print("Viewport now prefers 0x MSAA with a 16-bit depth buffer; original fallback ladder remains intact.")
+          PY
+          grep -n "EGLConfig c = chooseConfig" MobileStudio_Android_Project/app/src/main/java/com/exampletest/mobilestudiotest/ui/ViewportView.java
+
       - name: Build debug APK
         working-directory: MobileStudio_Android_Project
         shell: bash
