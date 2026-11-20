@@ -28,7 +28,7 @@ jobs:
 
       - name: Install Android 16 SDK and build tools
         run: |
-          sdkmanager "platforms;android-37" "build-tools;36.0.0" "platform-tools"
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
       - name: Set up Gradle 9.9.2
         uses: gradle/actions/setup-gradle@v6
@@ -42,6 +42,22 @@ jobs:
           test -f MobileStudio_Android_Project/settings.gradle
           test -f MobileStudio_Android_Project/app/build.gradle
           grep -n 'compileSdk' MobileStudio_Android_Project/app/build.gradle
+
+      - name: Pin AndroidX Core to API 36 compatible release
+        run: |
+          cat > androidx-core-compat.init.gradle <<'EOF'
+          allprojects {
+            configurations.configureEach {
+              resolutionStrategy.eachDependency { details ->
+                if (details.requested.group == "androidx.core" &&
+                    (details.requested.name == "core" || details.requested.name == "core-ktx")) {
+                  details.useVersion("1.17.0")
+                  details.because("Keep the recovered app buildable with the available Android API 36 SDK")
+                }
+              }
+            }
+          }
+          EOF
 
       - name: Apply mobile viewport graphics defaults
         shell: bash
@@ -65,7 +81,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          gradle --no-daemon --stacktrace assembleDebug 2>&1 | tee ../build.log
+          gradle --no-daemon --stacktrace -I ../androidx-core-compat.init.gradle assembleDebug 2>&1 | tee ../build.log
 
       - name: Upload APK and build diagnostics
         if: always()
