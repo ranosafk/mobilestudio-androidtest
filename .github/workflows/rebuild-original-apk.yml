@@ -494,9 +494,9 @@ jobs:
           }
           for getter, color in colors.items():
               pattern = re.compile(
-                  rf"(?m)^(\\s*)invoke-virtual(?:/range)? \\{{[^}}]+\\}}, "
-                  rf"Lcom/exampletest/mobilestudiotest/ui/Ui;->{getter}\\(\\)I\\n"
-                  rf"\\1move-result (v\\d+)$"
+                  rf"(?m)^(\s*)invoke-virtual(?:/range)? \{{[^}}]+\}}, "
+                  rf"Lcom/exampletest/mobilestudiotest/ui/Ui;->{getter}\(\)I\n"
+                  rf"\1move-result (v\d+)$"
               )
               source, count = pattern.subn(
                   lambda m: f"{m.group(1)}const {m.group(2)}, {color}", source
@@ -506,9 +506,9 @@ jobs:
               print(f"{getter}: corrected {count} call sites")
 
           light_pattern = re.compile(
-              r"(?m)^(\\s*)invoke-virtual(?:/range)? \\{{[^}}]+\\}}, "
-              r"Lcom/exampletest/mobilestudiotest/ui/Ui;->getLIGHT\\(\\)Z\\n"
-              r"\\1move-result (v\\d+)$"
+              r"(?m)^(\s*)invoke-virtual(?:/range)? \{{[^}}]+\}}, "
+              r"Lcom/exampletest/mobilestudiotest/ui/Ui;->getLIGHT\(\)Z\n"
+              r"\1move-result (v\d+)$"
           )
           source, light_count = light_pattern.subn(
               lambda m: f"{m.group(1)}const/4 {m.group(2)}, 0x1", source
@@ -549,8 +549,8 @@ jobs:
           # The title sits on the blue header, so it must be white rather than
           # inheriting the dark body-text colour.
           title_pattern = re.compile(
-              r"(?m)^(\\s*)const (v\\d+), -0xe6e6e7\\n"
-              r"(?=\\s+const/4 v\\d+, 0x1\\n\\s+const-string v\\d+, \"Mobile Studio\")"
+              r"(?m)^(\s*)const (v\d+), -0xe6e6e7\n"
+              r"(?=\s+const/4 v\d+, 0x1\n\s+const-string v\d+, \"Mobile Studio\")"
           )
           source, title_count = title_pattern.subn(
               lambda m: f"{m.group(1)}const {m.group(2)}, -0x1", source, count=1
@@ -560,11 +560,11 @@ jobs:
 
           # Tint the two header action icons white to match the blue navigation bar.
           icon_pattern = re.compile(
-              r"(Lcom/exampletest/mobilestudiotest/ui/Ui;->iconButton\\$default"
-              r"\\([^\\n]+\\)Landroid/widget/ImageView;\\n\\s+move-result-object v1)"
+              r"(Lcom/exampletest/mobilestudiotest/ui/Ui;->iconButton\$default"
+              r"\([^\n]+\)Landroid/widget/ImageView;\n\s+move-result-object v1)"
           )
           source, icon_count = icon_pattern.subn(
-              lambda m: m.group(1) + "\\n    const v9, -0x1\\n"
+              lambda m: m.group(1) + "\n    const v9, -0x1\n"
                         "    invoke-virtual {v1, v9}, Landroid/widget/ImageView;->setColorFilter(I)V",
               source
           )
@@ -581,7 +581,7 @@ jobs:
               raise SystemExit("Could not find greeting panel background")
           greeting = greeting.replace(
               old_bg,
-              "const v10, -0x1\\n"
+              "const v10, -0x1\n"
               "    invoke-virtual {v8, v10}, Landroid/view/View;->setBackgroundColor(I)V",
               1
           )
@@ -609,7 +609,7 @@ jobs:
           card = card.replace("int-to-float v14, v2", "const/4 v14, 0x0", 1)
           card = card.replace(
               "const/4 v14, 0x0",
-              "const/4 v14, 0x0\\n    const/4 v1, 0x0",
+              "const/4 v14, 0x0\n    const/4 v1, 0x0",
               1
           )
           source = source[:card_start] + card + source[card_end:]
