@@ -1,0 +1,29 @@
+name: Export recovered Android source
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - inspect/recovered-project
+    paths:
+      - '.github/workflows/export-recovered-source.yml'
+permissions:
+  contents: read
+  actions: write
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract source archive
+        run: |
+          set -euo pipefail
+          mkdir recovered
+          unzip -q MobileStudio_Recovered_Project.zip -d recovered
+          cd recovered/MobileStudio_Android_Project
+          zip -qr "$GITHUB_WORKSPACE/recovered-source.zip" app/src app/build.gradle build.gradle gradle.properties BUILD_README.md UPGRADE_AUDIT_ORIGINAL.md UPGRADE_IMPLEMENTATION_ORIGINAL.md recovery-reference/FAILED_METHODS_INDEX.md recovery-reference/RECOVERY_PASS_STATUS.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: recovered-android-source
+          path: recovered-source.zip
+          if-no-files-found: error
+          retention-days: 7
