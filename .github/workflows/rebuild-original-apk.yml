@@ -46,7 +46,7 @@ jobs:
           set -euo pipefail
           test -s mobilestudio_ver1-1.apk
           unzip -tq mobilestudio_ver1-1.apk
-          dex_count="$(unzip -Z1 mobilestudio_ver1-1.apk | grep -Ec '^classes([0-9]+)?\\.dex$')"
+          dex_count="$(unzip -Z1 mobilestudio_ver1-1.apk | grep -Ec '^classes([0-9]+)?\.dex$')"
           echo "Original DEX files: $dex_count"
           test "$dex_count" -eq 10
           java -jar apktool.jar d -f mobilestudio_ver1-1.apk -o decoded
@@ -71,7 +71,7 @@ jobs:
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs MobileStudio-rebuilt.apk
           "$BUILD_TOOLS/zipalign" -c -v 4 MobileStudio-rebuilt.apk
           unzip -tq MobileStudio-rebuilt.apk
-          rebuilt_dex_count="$(unzip -Z1 MobileStudio-rebuilt.apk | grep -Ec '^classes([0-9]+)?\\.dex$')"
+          rebuilt_dex_count="$(unzip -Z1 MobileStudio-rebuilt.apk | grep -Ec '^classes([0-9]+)?\.dex$')"
           echo "Rebuilt DEX files: $rebuilt_dex_count"
           test "$rebuilt_dex_count" -eq 10
           test "$(stat -c '%s' MobileStudio-rebuilt.apk)" -gt 1000000
