@@ -3,9 +3,8 @@ name: Build Mobile Studio APK
 on:
   workflow_dispatch:
   push:
-    paths:
-      - "MobileStudio_Recovered_Project.zip"
-      - ".github/workflows/android-build.yml"
+    branches:
+      - "inspect/recovered-project"
 
 permissions:
   contents: read
