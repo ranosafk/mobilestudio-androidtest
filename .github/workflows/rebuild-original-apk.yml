@@ -379,15 +379,18 @@ jobs:
 
           lit_before = "float diff = max(ndl, 0.0);"
           lit_after = "float diff = floor(max(ndl, 0.0) * 8.0 + 0.5) / 8.0;"
-          if source.count(lit_before) != 1:
-              raise SystemExit("Unexpected main lighting shader diffuse expression")
+          lit_count = source.count(lit_before)
+          if lit_count < 1:
+              raise SystemExit("Could not find diffuse expressions in SceneRenderer shader strings")
           source = source.replace(lit_before, lit_after)
 
           mesh_before = "uSun * max(ndl, 0.0) * sh"
           mesh_after = "uSun * (floor(max(ndl, 0.0) * 8.0 + 0.5) / 8.0) * sh"
-          if source.count(mesh_before) != 1:
-              raise SystemExit("Unexpected mesh lighting shader diffuse expression")
+          mesh_count = source.count(mesh_before)
+          if mesh_count < 1:
+              raise SystemExit("Could not find direct-sun expressions in SceneRenderer shader strings")
           source = source.replace(mesh_before, mesh_after)
+          print(f"Applied stepped diffuse shading to {lit_count} shader expressions and {mesh_count} direct-sun expressions.")
 
           renderer.write_text(source)
           print("Enabled 8-step direct-light shading in part and mesh shaders.")
