@@ -100,6 +100,63 @@ jobs:
           print("Applied 21 Studio Dark theme colors.")
           PY
 
+      - name: Refine mobile dock layout and touch targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          dock = Path("decoded/smali_classes5/com/exampletest/mobilestudiotest/ui/DockLayout.smali")
+          source = dock.read_text()
+
+          replacements = [
+              ("const/high16 v0, 0x435c0000    # 220.0f", "const/high16 v0, 0x43340000    # 180.0f"),
+              ("const/high16 v0, 0x437a0000    # 250.0f", "const/high16 v0, 0x433e0000    # 190.0f"),
+              ("const/high16 v0, 0x430c0000    # 140.0f", "const/high16 v0, 0x42f00000    # 120.0f"),
+          ]
+
+          for before, after in replacements:
+              count = source.count(before)
+              if count != 2:
+                  raise SystemExit(f"Expected exactly 2 occurrences of {before}, found {count}")
+              source = source.replace(before, after)
+
+          dock.write_text(source)
+
+          splitter = Path("decoded/smali_classes5/com/exampletest/mobilestudiotest/ui/Splitter.smali")
+          source = splitter.read_text()
+          before = "const/high16 v0, 0x41400000    # 12.0f"
+          after = "const/high16 v0, 0x41800000    # 16.0f"
+          if source.count(before) != 1:
+              raise SystemExit("Unexpected splitter thickness implementation")
+          splitter.write_text(source.replace(before, after))
+
+          before = "const/high16 v3, 0x41400000    # 12.0f"
+          after = "const/high16 v3, 0x41800000    # 16.0f"
+          if source.count(before) != 0:
+              raise SystemExit("Unexpected splitter source overlap")
+
+          source = dock.read_text()
+          before = "const/high16 v3, 0x41400000    # 12.0f"
+          after = "const/high16 v3, 0x41800000    # 16.0f"
+          if source.count(before) != 1:
+              raise SystemExit("Unexpected panel grip width implementation")
+          source = source.replace(before, after)
+          before = "const/high16 v4, 0x41900000    # 18.0f"
+          after = "const/high16 v4, 0x41b00000    # 22.0f"
+          if source.count(before) != 1:
+              raise SystemExit("Unexpected panel grip height implementation")
+          source = source.replace(before, after)
+          before = "const/high16 v4, 0x41d00000    # 26.0f"
+          after = "const/high16 v4, 0x41f00000    # 30.0f"
+          if source.count(before) != 2:
+              raise SystemExit("Expected two panel header action buttons")
+          source = source.replace(before, after)
+          dock.write_text(source)
+          print("Applied mobile dock sizing, 16dp resize targets, and larger panel controls.")
+          PY
+
       - name: Rebuild, align, sign, and verify APK
         shell: bash
         run: |
