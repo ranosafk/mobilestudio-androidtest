@@ -241,6 +241,26 @@ jobs:
               return-object v2
           .end method"""
           chooser.write_text(source[:start] + replacement + source[end:])
+          settings = Path("decoded/smali_classes4/com/exampletest/mobilestudiotest/core/Settings.smali")
+          source = settings.read_text()
+          quality_start = source.index(".method public final getGraphicsQuality()I")
+          quality_end = source.index(".end method", quality_start)
+          quality_method = source[quality_start:quality_end]
+          old_quality = '    const/16 v1, 0xa'
+          if quality_method.count(old_quality) != 1:
+              raise SystemExit("Unexpected graphics-quality default implementation")
+          quality_method = quality_method.replace(old_quality, '    const/4 v1, 0x3')
+          source = source[:quality_start] + quality_method + source[quality_end:]
+
+          distance_start = source.index(".method public final getRenderDistance()Ljava/lang/String;")
+          distance_end = source.index(".end method", distance_start)
+          distance_method = source[distance_start:distance_end]
+          old_distance = '    const-string v1, "Automatic"'
+          if distance_method.count(old_distance) != 1:
+              raise SystemExit("Unexpected render-distance default implementation")
+          distance_method = distance_method.replace(old_distance, '    const-string v1, "Low"')
+          source = source[:distance_start] + distance_method + source[distance_end:]
+          settings.write_text(source)
           print("Theme changes now restore the start menu; mobile viewport requests no-MSAA 16-bit depth first.")
           PY
 
