@@ -316,7 +316,6 @@ jobs:
           from pathlib import Path
 
           ui = Path("decoded/smali_classes5/com/exampletest/mobilestudiotest/ui")
-
           start = ui / "StartScreen.smali"
           source = start.read_text()
 
@@ -339,15 +338,14 @@ jobs:
           for before, after in [
               ("const/high16 v10, 0x41900000    # 18.0f", "const/high16 v10, 0x41a00000    # 20.0f"),
               ("const/high16 v12, 0x41800000    # 16.0f", "const/high16 v12, 0x41900000    # 18.0f"),
-              ("const/high16 v12, 0x41600000    # 14.0f", "const/high16 v12, 0x41800000    # 16.0f"),
           ]:
               if greet.count(before) != 1:
                   raise SystemExit(f"Unexpected home hero layout constant: {before}")
               greet = greet.replace(before, after)
-          before = "const/high16 v1, 0x41800000    # 16.0f"
-          after = "const/high16 v1, 0x41a00000    # 20.0f"
+          before = "    invoke-direct {v0, v12}, Lcom/exampletest/mobilestudiotest/ui/StartScreen;->dp(F)I\n\n    move-result v10\n\n    int-to-float v10, v10\n\n    invoke-virtual {v5, v10}, Landroid/graphics/drawable/GradientDrawable;->setCornerRadius(F)V"
+          after = "    const/high16 v12, 0x41a00000    # 20.0f\n\n" + before
           if greet.count(before) != 1:
-              raise SystemExit("Unexpected home hero corner radius")
+              raise SystemExit("Unexpected home hero corner-radius implementation")
           greet = greet.replace(before, after)
           source = source[:greet_start] + greet + source[greet_end:]
           start.write_text(source)
@@ -364,7 +362,6 @@ jobs:
           header = header.replace(before, after)
           source = source[:header_start] + header + source[header_end:]
           ui_file.write_text(source)
-
           print("Updated home hero spacing, project-card sizing, and shared Studio panel headers.")
           PY
 
