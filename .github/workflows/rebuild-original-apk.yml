@@ -485,7 +485,6 @@ jobs:
           integer_colors = {
               "getBG": "-0xd0d0e",
               "getCARD": "-0x1",
-              "getDIM": "-0x666667",
               "getTEXT": "-0xddddde",
               "getACCENT": "-0xffaa48",
               "getINPUT": "-0x1",
