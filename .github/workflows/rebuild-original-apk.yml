@@ -158,8 +158,8 @@ jobs:
           source = source.replace(before, after)
           before = "const/high16 v4, 0x41d00000    # 26.0f"
           after = "const/high16 v4, 0x41f00000    # 30.0f"
-          if source.count(before) != 2:
-              raise SystemExit("Expected two panel header action buttons")
+          if source.count(before) != 1:
+              raise SystemExit("Unexpected panel header action button size constant")
           source = source.replace(before, after)
           dock.write_text(source)
           print("Applied mobile dock sizing, 16dp resize targets, and larger panel controls.")
