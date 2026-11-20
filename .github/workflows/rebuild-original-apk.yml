@@ -546,24 +546,6 @@ jobs:
               ".method private final greeting(Landroid/widget/LinearLayout;)V"
           )
 
-          # Give the app's own top-level background the classic light Roblox-page grey.
-          root_pattern = re.compile(
-              r"(?m)^(\s*)sget-object (v\d+), Lcom/exampletest/mobilestudiotest/ui/Ui;->INSTANCE:"
-              r"Lcom/exampletest/mobilestudiotest/ui/Ui;\n"
-              r"\1invoke-virtual \{\2\}, Lcom/exampletest/mobilestudiotest/ui/Ui;->getBG\(\)I\n"
-              r"\1move-result (v\d+)\n"
-              r"\1invoke-virtual \{v0, \3\}, Lcom/exampletest/mobilestudiotest/ui/StartScreen;->setBackgroundColor\(I\)V"
-          )
-          source, root_count = root_pattern.subn(
-              lambda m: f"{m.group(1)}const {m.group(3)}, -0xd0d0e\n"
-                        f"{m.group(1)}invoke-virtual {{v0, {m.group(3)}}}, "
-                        "Lcom/exampletest/mobilestudiotest/ui/StartScreen;->setBackgroundColor(I)V",
-              source,
-              count=1
-          )
-          if root_count != 1:
-              raise SystemExit("Could not set the actual StartScreen root background")
-
           path.write_text(source)
           print("Classic Roblox-style home palette applied only to StartScreen.")
           PY
