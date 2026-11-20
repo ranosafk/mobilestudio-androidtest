@@ -367,6 +367,79 @@ jobs:
           print("Updated home hero spacing, project-card sizing, and shared Studio panel headers.")
           PY
 
+      - name: Refine Roblox-style UI colors and simplify icon palette
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          theme = Path("decoded/smali_classes4/com/exampletest/mobilestudiotest/core/Theme.smali")
+          source = theme.read_text()
+          start = source.index('const-string v3, "Dark"')
+          end = source.index("invoke-direct/range {v2 .. v25}", start)
+          block = source[start:end]
+          palette = {
+              "v5": "-0xe8e6e1",
+              "v6": "-0xdedbd6",
+              "v7": "-0xd2cec8",
+              "v8": "-0xe3e0da",
+              "v9": "-0xd9d4ce",
+              "v10": "-0xc8c2ba",
+              "v11": "-0x17120e",
+              "v12": "-0x655a4f",
+              "v13": "-0xff5d01",
+              "v14": "-0xeca478",
+              "v15": "-0xcfc6bb",
+              "v16": "-0xe6e2dc",
+              "v17": "-0xdad4cd",
+              "v18": "-0xe8e4de",
+              "v19": "-0xdfd8cf",
+              "v20": "-0x19120d",
+              "v21": "-0xa9632a",
+              "v22": "-0x316e88",
+              "v23": "-0x4a3158",
+              "v24": "-0x9566ab",
+              "v25": "-0xb13650",
+          }
+          for register, value in palette.items():
+              pattern = rf"(?m)^(\\s*)const(?:/16)?\\s+{register},\\s*[^\\n]+$"
+              block, count = re.subn(pattern, rf"\\g<1>const {register}, {value}", block)
+              if count != 1:
+                  raise SystemExit(f"Expected one {register} theme color, found {count}")
+          theme.write_text(source[:start] + block + source[end:])
+
+          icons = Path("decoded/smali_classes5/com/exampletest/mobilestudiotest/ui/IconPainter.smali")
+          source = icons.read_text()
+          colors = {
+              "BLUE": "-0xff5d01",
+              "DBLUE": "-0xff904d",
+              "LBLUE": "-0x993801",
+              "GRAY_L": "-0x494138",
+              "GRAY_R": "-0x887e73",
+              "GRAY_T": "-0xcbc4bb",
+              "GREEN": "-0xba4c95",
+              "DGREEN": "-0xd785b5",
+              "RED": "-0x1fa5a6",
+              "ORANGE": "-0x1f5cb6",
+              "YELLOW": "-0xf38a2",
+              "PURPLE": "-0x657d28",
+              "TEAL": "-0xb64650",
+              "BROWN": "-0x4a7598",
+              "PAPER": "-0xe0c0b",
+              "DARK": "-0xd4d4cd",
+              "GUI": "-0xb47039",
+          }
+          for name, value in colors.items():
+              pattern = rf"(?m)^\\.field public static final {name}:I = [^\\n]+$"
+              source, count = re.subn(pattern, f".field public static final {name}:I = {value}", source)
+              if count != 1:
+                  raise SystemExit(f"Expected one icon color constant for {name}, found {count}")
+          icons.write_text(source)
+          print("Applied a cool charcoal and Roblox-blue theme with a restrained, flatter icon color set.")
+          PY
+
       - name: Add voxel-inspired stepped sunlight shading
         shell: bash
         run: |
