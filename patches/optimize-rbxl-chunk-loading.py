@@ -72,3 +72,83 @@ new = """        // Index chunk locations only. Large compressed chunks (especia
 assert old in s
 s = s.replace(old, new, 1)
 p.write_text(s)
+
+# Avoid allocating a second per-class Instance reference list for every PROP chunk.
+# The reader already has the stable reference IDs in ClassInfo.refs, so resolve each
+# instance only while assigning its decoded property.
+old = """        val insts = ci.refs.map { instances[it]!! }
+        val n = insts.size
+        val payloadStart = r.pos
+        val values: List<Any?> = try {
+            readValues(r, type, n, insts, name)
+"""
+new = """        val refs = ci.refs
+        val n = refs.size
+        val payloadStart = r.pos
+        val values: List<Any?> = try {
+            readValues(r, type, n, name)
+"""
+assert old in s
+s = s.replace(old, new, 1)
+
+old = """            for (i in 0 until n) { insts[i].props[name] = RawPropValue(type, payload, i, n); insts[i].propTypes[name] = type }
+            return
+        }
+        for (i in 0 until n) {
+            if (type != PropType.REF) insts[i].props[name] = values[i]
+            insts[i].propTypes[name] = type
+        }
+"""
+new = """            for (i in 0 until n) {
+                val inst = instances[refs[i]] ?: continue
+                inst.props[name] = RawPropValue(type, payload, i, n)
+                inst.propTypes[name] = type
+            }
+            return
+        }
+        for (i in 0 until n) {
+            val inst = instances[refs[i]] ?: continue
+            if (type != PropType.REF) inst.props[name] = values[i]
+            inst.propTypes[name] = type
+        }
+"""
+assert old in s
+s = s.replace(old, new, 1)
+
+old = """    private fun readValues(r: ByteReader, type: Int, n: Int, insts: List<Instance>, name: String): List<Any?> = when (type) {
+"""
+new = """    private fun readValues(r: ByteReader, type: Int, n: Int, name: String): List<Any?> = when (type) {
+"""
+assert old in s
+s = s.replace(old, new, 1)
+
+old = """            for (i in 0 until n) pendingRefs.add(Triple(insts[i], name, refs[i]))
+            List(n) { null }
+"""
+new = """            for (ref in refs.indices) pendingRefs.add(Triple(instances[ciRefPlaceholder(ref)], name, refs[ref]))
+            emptyList()
+"""
+# Do not apply this section: it needs class refs, which readValues doesn't receive.
+# REF property values are uncommon but retain the existing resolver through a lightweight
+# argument only when needed. Instead keep the old insts parameter for REF without allocating
+# a mapped list by using an AbstractList view over ClassInfo.refs.
+# Replace signature and caller with a lazy indexed view.
+s=s.replace("""        val refs = ci.refs
+        val n = refs.size
+        val payloadStart = r.pos
+        val values: List<Any?> = try {
+            readValues(r, type, n, name)
+""","""        val refs = ci.refs
+        val n = refs.size
+        val instView = object : AbstractList<Instance>() {
+            override val size: Int get() = refs.size
+            override fun get(index: Int): Instance = instances[refs[index]]!!
+        }
+        val payloadStart = r.pos
+        val values: List<Any?> = try {
+            readValues(r, type, n, instView, name)
+""",1)
+s=s.replace("""    private fun readValues(r: ByteReader, type: Int, n: Int, insts: List<Instance>, name: String): List<Any?> = when (type) {
+""","""    private fun readValues(r: ByteReader, type: Int, n: Int, insts: List<Instance>, name: String): List<Any?> = when (type) {
+""",1)
+p.write_text(s)
