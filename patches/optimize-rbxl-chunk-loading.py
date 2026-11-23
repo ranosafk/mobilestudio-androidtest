@@ -146,3 +146,49 @@ s=s.replace("""    private fun readValues(r: ByteReader, type: Int, n: Int, inst
 ""","""    private fun readValues(r: ByteReader, type: Int, n: Int, insts: List<Instance>, name: String): List<Any?> = when (type) {
 """,1)
 p.write_text(s)
+
+# Avoid Base64-encoding every SharedString payload just to use it as a map key.
+# Base64 creates a large temporary String for every distinct binary string.
+needle = """object RbxBinaryWriter {
+    fun write(roots: List<Instance>, meta: Map<String, String>): ByteArray {
+"""
+replacement = """object RbxBinaryWriter {
+    private class SharedStringKey(val bytes: ByteArray) {
+        override fun equals(other: Any?): Boolean = other is SharedStringKey && bytes.contentEquals(other.bytes)
+        override fun hashCode(): Int = bytes.contentHashCode()
+    }
+
+    fun write(roots: List<Instance>, meta: Map<String, String>): ByteArray {
+"""
+assert needle in s
+s = s.replace(needle, replacement, 1)
+
+old = """        val sstr = LinkedHashMap<String, Pair<Int, ByteArray>>()
+        for (i in all) for (v in i.props.values) if (v is SharedStr) {
+            val key = java.util.Base64.getEncoder().encodeToString(v.bytes)
+            if (key !in sstr) sstr[key] = sstr.size to v.bytes
+        }
+"""
+new = """        val sstr = LinkedHashMap<SharedStringKey, Pair<Int, ByteArray>>()
+        for (i in all) for (v in i.props.values) if (v is SharedStr) {
+            val key = SharedStringKey(v.bytes)
+            if (key !in sstr) sstr[key] = sstr.size to v.bytes
+        }
+"""
+assert old in s
+s = s.replace(old, new, 1)
+
+old = """    private fun writeValues(w: ByteWriter, type: Int, vals: List<Any?>, ref: IdentityHashMap<Instance, Int>, sstr: Map<String, Pair<Int, ByteArray>>) {
+"""
+new = """    private fun writeValues(w: ByteWriter, type: Int, vals: List<Any?>, ref: IdentityHashMap<Instance, Int>, sstr: Map<SharedStringKey, Pair<Int, ByteArray>>) {
+"""
+assert old in s
+s = s.replace(old, new, 1)
+
+old = """                if (s == null) 0 else sstr[java.util.Base64.getEncoder().encodeToString(s.bytes)]?.first ?: 0
+"""
+new = """                if (s == null) 0 else sstr[SharedStringKey(s.bytes)]?.first ?: 0
+"""
+assert old in s
+s = s.replace(old, new, 1)
+p.write_text(s)
