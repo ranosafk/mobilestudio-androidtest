@@ -115,12 +115,6 @@ new = """            for (i in 0 until n) {
 assert old in s
 s = s.replace(old, new, 1)
 
-old = """    private fun readValues(r: ByteReader, type: Int, n: Int, insts: List<Instance>, name: String): List<Any?> = when (type) {
-"""
-new = """    private fun readValues(r: ByteReader, type: Int, n: Int, name: String): List<Any?> = when (type) {
-"""
-assert old in s
-s = s.replace(old, new, 1)
 
 old = """            for (i in 0 until n) pendingRefs.add(Triple(insts[i], name, refs[i]))
             List(n) { null }
