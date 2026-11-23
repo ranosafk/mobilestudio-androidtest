@@ -9,6 +9,7 @@ on:
       - "overrides/MainActivity.kt"
       - "overrides/ViewportView.kt"
       - "overrides/DockLayout.kt"
+      - "patches/optimize-rbxl-chunk-loading.py"
   workflow_dispatch:
 
 permissions:
@@ -34,6 +35,9 @@ jobs:
           cp overrides/MainActivity.kt source/app/src/main/java/com/exampletest/mobilestudiotest/MainActivity.kt
           cp overrides/ViewportView.kt source/app/src/main/java/com/exampletest/mobilestudiotest/ui/ViewportView.kt
           cp overrides/DockLayout.kt source/app/src/main/java/com/exampletest/mobilestudiotest/ui/DockLayout.kt
+
+      - name: Optimize RBXL chunk loading memory
+        run: python3 patches/optimize-rbxl-chunk-loading.py
 
       - name: Set up JDK 25
         uses: actions/setup-java@v4
